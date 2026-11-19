@@ -21,7 +21,7 @@ set(SKYRIM_MODS_PACKAGE_DIR "${CMAKE_BINARY_DIR}/package")
 
 function(skyrim_mod_package TARGET MOD_DIR)
     # CommonLib headers (and its generated plugin-info stub) expect its PCH first.
-    target_precompile_headers("${TARGET}" PRIVATE <RE/Skyrim.h> <SKSE/SKSE.h>)
+    target_precompile_headers("${TARGET}" PRIVATE "${CMAKE_SOURCE_DIR}/cmake/PCH.h")
 
     set(out "${SKYRIM_MODS_PACKAGE_DIR}/${TARGET}")
     add_custom_command(
