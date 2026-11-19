@@ -1,0 +1,61 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["*-v*"]          # e.g. StartingPerkPoints-v1.0.0 publishes a release of that mod
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: build/vcpkg_installed
+          key: vcpkg-${{ hashFiles('vcpkg.json') }}
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
+          cmake --preset release
+
+      - name: Build
+        run: cmake --build --preset release
+
+      - name: Package mods
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Get-ChildItem build/package -Directory | ForEach-Object {
+            Compress-Archive -Path "$($_.FullName)/*" -DestinationPath "dist/$($_.Name).zip" -Force
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: skyrim-mods
+          path: dist/*.zip
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $mod = $tag -replace '-v[^-]+$', ''
+          gh release create $tag "dist/$mod.zip" --title $tag --notes "Install the zip with your mod manager. See mods/$mod/README.md."
